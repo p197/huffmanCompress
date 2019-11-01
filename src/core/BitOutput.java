@@ -6,13 +6,14 @@ package core;
  * @time 22:15
  */
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.OutputStream;
 
 /**
  * 按bit写出的output。
  */
-public class BitOutput {
+public class BitOutput implements Closeable {
 
     private OutputStream out;
     private int value;
@@ -71,11 +72,19 @@ public class BitOutput {
         }
     }
 
+    public void flush() {
+        if (next != 7) {
+            throw new RuntimeException("bitStream Less than 7 bit,flush will be an error");
+        }
+    }
+
+    @Override
     public void close() throws IOException {
         if (next == 7) {
             out.close();
             return;
         }
+        // 不够一个字节
         out.write(value);
         out.close();
     }

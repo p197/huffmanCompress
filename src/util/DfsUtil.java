@@ -9,6 +9,13 @@ import core.Node;
  */
 public class DfsUtil {
 
+    /**
+     * 将huffman树转换为01编码串
+     *
+     * @param root
+     * @param path
+     * @param binaryString
+     */
     public static void dfs(Node root, StringBuilder path, String[] binaryString) {
         if (root.left == null) {
             binaryString[(root.value & 0xff)] = path.toString();

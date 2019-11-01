@@ -14,19 +14,56 @@ import java.util.PriorityQueue;
 public class DeCompress {
 
     private File srcFile;
-    private File parentFile;
-    private File generateFile;
     private String[] binary0To255;
 
-    public DeCompress(File srcFile, File parentFile) {
+    public DeCompress(File srcFile) {
         this.srcFile = srcFile;
-        this.parentFile = parentFile;
+        // 缓存每一种byte对应的8位二进制串
         binary0To255 = StringUtil.generateBinary0To255();
     }
 
-    public void deCompressFile() throws IOException {
-        PriorityQueue<Node> queue = new PriorityQueue<>();
+    public void deCompress(File parentFile) throws IOException {
         BufferedInputStream bin = new BufferedInputStream(new FileInputStream(srcFile));
+        int fileType = bin.read();
+        if (fileType == FileConstant.TYPE_FILE) {
+            deCompressFile(bin, parentFile);
+        } else if (fileType == FileConstant.TYPE_FOLDER) {
+            deCompressFolder(bin, parentFile);
+        } else {
+            throw new RuntimeException();
+        }
+
+    }
+
+    private void deCompressFolder(BufferedInputStream bin, File parentFile) throws IOException {
+        int fileNameLength = bin.read();
+        byte[] fileName = new byte[fileNameLength];
+        int cur = 0;
+        int readLen;
+        while (cur < fileNameLength && (readLen = bin.read(fileName)) != -1) {
+            cur += readLen;
+        }
+        File rootFile = new File(parentFile, new String(fileName));
+        if (rootFile.exists()) {
+            rootFile.delete();
+        }
+        rootFile.mkdir();
+        // 获取当前文件夹内部子文件的个数
+        int fileCount = bin.read();
+        for (int i = 0; i < fileCount; i++) {
+            int fileType = bin.read();
+            if (fileType == FileConstant.TYPE_FILE) {
+                deCompressFile(bin, rootFile);
+            } else if (fileType == FileConstant.TYPE_FOLDER) {
+                deCompressFolder(bin, rootFile);
+            } else {
+                throw new RuntimeException();
+            }
+        }
+    }
+
+    private void deCompressFile(BufferedInputStream bin, File parentFile) throws IOException {
+        PriorityQueue<Node> queue = new PriorityQueue<>();
         int fileNameLength = bin.read();
         // 文件名
         byte[] fileName = new byte[fileNameLength];
@@ -38,17 +75,16 @@ public class DeCompress {
         if (cur < fileNameLength) {
             throw new IOException("file format error");
         }
-        generateFile = new File(parentFile, new String(fileName));
+        File generateFile = new File(parentFile, new String(fileName));
         if (generateFile.exists()) {
             generateFile.delete();
         }
         generateFile.createNewFile();
-        // huffman节点的个数
-        int huffmanNodeSize = bin.read();
-        // 空文件
-        if (huffmanNodeSize == -1) {
+        int isNull = bin.read();
+        if (isNull == FileConstant.FILE_NULL) {
             return;
         }
+        int huffmanNodeSize = bin.read();
         if (huffmanNodeSize == 0) {
             huffmanNodeSize = 256;
         }
@@ -78,19 +114,18 @@ public class DeCompress {
         // 新构建的文件的总的byte数量
         long totalByteCount = ByteUtil.bytesToLong(byteLength);
         Node root = HuffmanTree.getHuffmanTree(queue);
-        buildFile(bin, new String(fileName), root, totalByteCount);
+        buildFile(generateFile, bin, root, totalByteCount);
     }
 
     /**
      * 利用huffman树构建出原始文件
      *
      * @param bin
-     * @param fileName
      * @param root
      * @param totalByteCount
      * @throws IOException
      */
-    private void buildFile(BufferedInputStream bin, String fileName, Node root, long totalByteCount) throws IOException {
+    private void buildFile(File generateFile, BufferedInputStream bin, Node root, long totalByteCount) throws IOException {
         BufferedOutputStream bout = new BufferedOutputStream(new FileOutputStream(generateFile));
         StringBuilder stringBuilder = new StringBuilder();
         Node cur = root;
@@ -106,10 +141,9 @@ public class DeCompress {
         }
         d = bin.read();
         int fillZeroCount = bin.read();
-        stringBuilder.append(Integer.toBinaryString(d | 256).substring(0, 8 - fillZeroCount));
+        stringBuilder.append(binary0To255[d].substring(0, 8 - fillZeroCount));
         dfs(root, cur, stringBuilder, bout);
         bout.close();
-        bin.close();
     }
 
     /**
@@ -141,5 +175,4 @@ public class DeCompress {
         }
         return cur;
     }
-
 }

@@ -4,6 +4,8 @@ package core;
  * @author 12130
  * @date 2019/10/29
  * @time 20:51
+ * <p>
+ * Huffman树中的节点
  */
 public class Node implements Comparable<Node> {
     /**
@@ -17,11 +19,6 @@ public class Node implements Comparable<Node> {
 
     public Node left;
     public Node right;
-
-    public Node(Node left, Node right) {
-        this.left = left;
-        this.right = right;
-    }
 
     public Node(byte value, int count) {
         this.value = value;
